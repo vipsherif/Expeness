@@ -339,13 +339,13 @@ function toast(msg,ok=true){
   t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200);
 }
 
-function go(id,btn){
+window.go=function(id,btn){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   document.getElementById('s-'+id).classList.add('on');btn.classList.add('on');render();
 }
 
-function setTab(t,btn){
+window.setTab=function(t,btn){
   ['expense','income','transfer'].forEach(x=>{document.getElementById('tab-'+x).style.display='none';});
   document.getElementById('tab-'+t).style.display='block';
   document.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');trNote();
@@ -367,7 +367,7 @@ function popSelects(){
   document.getElementById('cu-card').innerHTML=[...S.uc.map(c=>`<option value="uc:${c.n}">${c.n} (AED)</option>`),...S.ec.map(c=>`<option value="ec:${c.n}">${c.n} (EGP)</option>`)].join('');
 }
 
-function trNote(){
+window.trNote=function(){
   const f=document.getElementById('tr-from').value||'';
   const t=document.getElementById('tr-to').value||'';
   const el=document.getElementById('tr-note-box');if(!el)return;
@@ -504,7 +504,7 @@ window.delNwItem=function(id,type){
 
 function toAED(val,cur){return cur==='EGP'?val/S.rate:val;}
 
-function render(){
+window.render=function(){
   document.getElementById('rate-in').value=S.rate;
   document.getElementById('cf-rate').textContent='Rate: '+S.rate+' EGP/AED';
   const uT=S.uae.reduce((a,x)=>a+x.b,0);
