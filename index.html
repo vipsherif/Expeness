@@ -183,8 +183,17 @@ select option{background:var(--bg2);}
 <div class="screen" id="s-acc">
   <h1>Accounts</h1>
   <div class="sec">UAE (AED)</div><div id="a-uae"></div>
+  <button class="btn btn-g" onclick="openAddAcc('uae')">+ Add UAE account</button>
   <div class="sec">Egypt (EGP)</div><div id="a-egp"></div>
+  <button class="btn btn-g" onclick="openAddAcc('egp')">+ Add Egypt account</button>
   <div class="divider"></div>
+  <div id="add-acc-form" style="display:none;">
+    <div class="sec" id="add-acc-title">Add account</div>
+    <input type="text" id="new-acc-name" placeholder="Account name (e.g. ADCB Savings)">
+    <input type="number" id="new-acc-bal" placeholder="Opening balance" inputmode="decimal">
+    <button class="btn btn-p" onclick="saveNewAcc()">Add account</button>
+    <button class="btn btn-s" onclick="document.getElementById('add-acc-form').style.display='none'">Cancel</button>
+  </div>
   <div class="sec">Override balance</div>
   <select id="ov-acc"></select>
   <input type="number" id="ov-val" placeholder="Set exact balance" inputmode="decimal">
@@ -196,8 +205,18 @@ select option{background:var(--bg2);}
 <div class="screen" id="s-cards">
   <h1>Credit Cards</h1>
   <div class="sec">UAE</div><div id="c-uae"></div>
+  <button class="btn btn-g" onclick="openAddCard('uae')">+ Add UAE card</button>
   <div class="sec">Egypt (EGP)</div><div id="c-egp"></div>
+  <button class="btn btn-g" onclick="openAddCard('egp')">+ Add Egypt card</button>
   <div class="divider"></div>
+  <div id="add-card-form" style="display:none;">
+    <div class="sec" id="add-card-title">Add card</div>
+    <input type="text" id="new-card-name" placeholder="Card name (e.g. ENBD Visa)">
+    <input type="number" id="new-card-limit" placeholder="Credit limit" inputmode="decimal">
+    <input type="number" id="new-card-used" placeholder="Outstanding balance (0 if new)" inputmode="decimal">
+    <button class="btn btn-p" onclick="saveNewCard()">Add card</button>
+    <button class="btn btn-s" onclick="document.getElementById('add-card-form').style.display='none'">Cancel</button>
+  </div>
   <div class="sec">Update outstanding</div>
   <select id="cu-card"></select>
   <input type="number" id="cu-val" placeholder="Outstanding balance" inputmode="decimal">
@@ -326,7 +345,7 @@ const DEF_CF={
   }))
 };
 
-const CODE_VERSION = 16; // bump this every time Claude updates the file
+const CODE_VERSION = 17; // bump this every time Claude updates the file
 const DEF={
   version: CODE_VERSION,
   rate:14.5,
@@ -807,10 +826,10 @@ function render(){
   document.getElementById('h-egp-g').innerHTML=S.egp.map(a=>`<div class="mini"><div class="ml">${a.n}</div><div class="mv g">${f(a.b,0)}</div></div>`).join('');
   document.getElementById('h-up').innerHTML=(S.up||[]).map(u=>`<div class="card" style="${u.u?'border-color:var(--red);':''}"><div class="row"><span class="lbl">${u.t}</span><span class="${u.u?'r':'a'}" style="font-weight:600;font-size:15px;">${u.c} ${f(u.a,0)}</span></div></div>`).join('');
   document.getElementById('h-cards').innerHTML=[...S.uc,...S.ec].map(c=>{const p=pct(c.u,c.l);return`<div class="card"><div class="row"><span style="font-weight:500;font-size:13px;">${c.n}</span><span class="tag ${ptag(p)}">${p}% used</span></div><div class="bar"><div class="fill" style="width:${p}%;background:${pbg(p)};"></div></div><div class="row" style="margin-top:4px;"><span class="lbl">Free: ${f(c.l-c.u,0)}</span><span class="lbl">Limit: ${f(c.l,0)}</span></div></div>`;}).join('');
-  document.getElementById('a-uae').innerHTML=S.uae.map(a=>`<div class="card"><div class="row"><div><div style="font-weight:500;">${a.n}</div><div class="lbl">AED</div></div><div class="b" style="font-size:19px;font-weight:700;">${f(a.b,2)}</div></div></div>`).join('');
-  document.getElementById('a-egp').innerHTML=S.egp.map(a=>`<div class="card"><div class="row"><div><div style="font-weight:500;">${a.n}</div><div class="lbl">EGP · ≈ AED ${f(a.b/S.rate,0)}</div></div><div class="g" style="font-size:19px;font-weight:700;">${f(a.b,0)}</div></div></div>`).join('');
-  document.getElementById('c-uae').innerHTML=S.uc.map(c=>{const p=pct(c.u,c.l);return`<div class="card"><div class="row"><span style="font-weight:500;">${c.n}</span><span class="tag ${ptag(p)}">${p}%</span></div><div class="bar"><div class="fill" style="width:${p}%;background:${pbg(p)};"></div></div><div class="row" style="margin-top:7px;"><div><div class="lbl">Used</div><div class="r" style="font-weight:600;">${f(c.u,0)}</div></div><div><div class="lbl">Free</div><div class="g" style="font-weight:600;">${f(c.l-c.u,0)}</div></div><div><div class="lbl">Limit</div><div>${f(c.l,0)}</div></div></div><div class="lbl" style="text-align:right;margin-top:3px;">AED</div></div>`;}).join('');
-  document.getElementById('c-egp').innerHTML=S.ec.map(c=>{const p=pct(c.u,c.l);return`<div class="card"><div class="row"><span style="font-weight:500;">${c.n}</span><span class="tag ${ptag(p)}">${p}%</span></div><div class="bar"><div class="fill" style="width:${p}%;background:${pbg(p)};"></div></div><div class="row" style="margin-top:7px;"><div><div class="lbl">Used</div><div class="r" style="font-weight:600;">${f(c.u,0)}</div></div><div><div class="lbl">Free</div><div class="g" style="font-weight:600;">${f(c.l-c.u,0)}</div></div><div><div class="lbl">Limit</div><div>${f(c.l,0)}</div></div></div><div class="lbl" style="text-align:right;margin-top:3px;">EGP</div></div>`;}).join('');
+  document.getElementById('a-uae').innerHTML=S.uae.map(a=>`<div class="card"><div class="row"><div><div style="font-weight:500;">${a.n}</div><div class="lbl">AED</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="b" style="font-size:19px;font-weight:700;">${f(a.b,2)}</div><button onclick="delAcc('uae','${a.n}')" style="background:var(--rbg);color:var(--red);border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;">✕</button></div></div></div>`).join('');
+  document.getElementById('a-egp').innerHTML=S.egp.map(a=>`<div class="card"><div class="row"><div><div style="font-weight:500;">${a.n}</div><div class="lbl">EGP · ≈ AED ${f(a.b/S.rate,0)}</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="g" style="font-size:19px;font-weight:700;">${f(a.b,0)}</div><button onclick="delAcc('egp','${a.n}')" style="background:var(--rbg);color:var(--red);border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;">✕</button></div></div></div>`).join('');
+  document.getElementById('c-uae').innerHTML=S.uc.map(c=>{const p=pct(c.u,c.l);return`<div class="card"><div class="row"><span style="font-weight:500;">${c.n}</span><div style="display:flex;align-items:center;gap:6px;"><span class="tag ${ptag(p)}">${p}%</span><button onclick="delCard('uc','${c.n}')" style="background:var(--rbg);color:var(--red);border:none;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer;">✕</button></div></div><div class="bar"><div class="fill" style="width:${p}%;background:${pbg(p)};"></div></div><div class="row" style="margin-top:7px;"><div><div class="lbl">Used</div><div class="r" style="font-weight:600;">${f(c.u,0)}</div></div><div><div class="lbl">Free</div><div class="g" style="font-weight:600;">${f(c.l-c.u,0)}</div></div><div><div class="lbl">Limit</div><div>${f(c.l,0)}</div></div></div><div class="lbl" style="text-align:right;margin-top:3px;">AED</div></div>`;}).join('');
+  document.getElementById('c-egp').innerHTML=S.ec.map(c=>{const p=pct(c.u,c.l);return`<div class="card"><div class="row"><span style="font-weight:500;">${c.n}</span><div style="display:flex;align-items:center;gap:6px;"><span class="tag ${ptag(p)}">${p}%</span><button onclick="delCard('ec','${c.n}')" style="background:var(--rbg);color:var(--red);border:none;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer;">✕</button></div></div><div class="bar"><div class="fill" style="width:${p}%;background:${pbg(p)};"></div></div><div class="row" style="margin-top:7px;"><div><div class="lbl">Used</div><div class="r" style="font-weight:600;">${f(c.u,0)}</div></div><div><div class="lbl">Free</div><div class="g" style="font-weight:600;">${f(c.l-c.u,0)}</div></div><div><div class="lbl">Limit</div><div>${f(c.l,0)}</div></div></div><div class="lbl" style="text-align:right;margin-top:3px;">EGP</div></div>`;}).join('');
   const uaeC=uT,egpC=eT/S.rate;
   const customA=(S.assets||[]).reduce((sum,a)=>sum+toAED(a.val,a.cur),0);
   const totalA=uaeC+egpC+customA;
@@ -835,6 +854,56 @@ function render(){
     return`<div class="li"><div class="li-row"><span style="font-size:13px;">${top}</span><span class="lbl" style="font-size:11px;">${l.date}</span></div><div class="li-sub">${sub}</div></div>`;
   }).join(''):'<div class="lbl" style="text-align:center;padding:16px;">No transactions yet</div>';
 }
+
+
+// ─── ADD / REMOVE ACCOUNTS ───────────────────────────────────────
+let addAccType='uae';
+window.openAddAcc=function(type){
+  addAccType=type;
+  document.getElementById('add-acc-title').textContent='Add '+(type==='uae'?'UAE (AED)':'Egypt (EGP)')+' account';
+  document.getElementById('add-acc-form').style.display='block';
+  document.getElementById('new-acc-name').value='';
+  document.getElementById('new-acc-bal').value='';
+  document.getElementById('new-acc-name').focus();
+};
+window.saveNewAcc=function(){
+  const name=document.getElementById('new-acc-name').value.trim();
+  const bal=parseFloat(document.getElementById('new-acc-bal').value)||0;
+  if(!name){toast('Enter account name',false);return;}
+  if(addAccType==='uae')S.uae.push({n:name,b:bal});else S.egp.push({n:name,b:bal});
+  document.getElementById('add-acc-form').style.display='none';
+  sv();render();toast('Account added');
+};
+window.delAcc=function(type,name){
+  if(!confirm('Remove '+name+'?'))return;
+  if(type==='uae')S.uae=S.uae.filter(a=>a.n!==name);else S.egp=S.egp.filter(a=>a.n!==name);
+  sv();render();toast('Account removed');
+};
+// ─── ADD / REMOVE CARDS ──────────────────────────────────────────
+let addCardType='uae';
+window.openAddCard=function(type){
+  addCardType=type;
+  document.getElementById('add-card-title').textContent='Add '+(type==='uae'?'UAE (AED)':'Egypt (EGP)')+' card';
+  document.getElementById('add-card-form').style.display='block';
+  document.getElementById('new-card-name').value='';
+  document.getElementById('new-card-limit').value='';
+  document.getElementById('new-card-used').value='';
+  document.getElementById('new-card-name').focus();
+};
+window.saveNewCard=function(){
+  const name=document.getElementById('new-card-name').value.trim();
+  const limit=parseFloat(document.getElementById('new-card-limit').value)||0;
+  const used=parseFloat(document.getElementById('new-card-used').value)||0;
+  if(!name||!limit){toast('Enter name and limit',false);return;}
+  if(addCardType==='uae')S.uc.push({n:name,l:limit,u:used});else S.ec.push({n:name,l:limit,u:used});
+  document.getElementById('add-card-form').style.display='none';
+  sv();render();toast('Card added');
+};
+window.delCard=function(type,name){
+  if(!confirm('Remove '+name+'?'))return;
+  if(type==='uc')S.uc=S.uc.filter(c=>c.n!==name);else S.ec=S.ec.filter(c=>c.n!==name);
+  sv();render();toast('Card removed');
+};
 
 loadFromFirebase();
 </script>
