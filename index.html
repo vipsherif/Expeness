@@ -132,6 +132,7 @@ select option{background:var(--bg2);}
     <div style="display:flex;align-items:center;gap:8px;">
       <span class="lbl" id="sync-time"></span>
       <span style="font-size:9px;color:var(--sub);" id="ver-label"></span>
+      <button onclick="manualMigrate()" style="background:var(--gbg);color:var(--green);border:none;border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer;">Restore</button>
     </div>
   </div>
   <div class="rate-box">
@@ -361,7 +362,7 @@ const DEF_CF={
   }))
 };
 
-const CODE_VERSION = 18;
+const CODE_VERSION = 20;
 let DOC = null;
 
 window.signInWithGoogle = async function(){
@@ -379,6 +380,36 @@ window.doSignOut = async function(){
   document.querySelector('.nav').style.display='none';
 };
 
+window.manualMigrate=async function(){
+  const user=auth.currentUser;
+  if(!user){toast('Please sign in first',false);return;}
+  await migrateFromMain(user.uid);
+};
+
+async function migrateFromMain(uid){
+  try{
+    const mainDoc=doc(db,'budget','main');
+    const mainSnap=await getDoc(mainDoc);
+    if(!mainSnap.exists()){toast('No old data found to migrate');return;}
+    const oldData=mainSnap.data();
+    const userDoc=doc(db,'budget',uid);
+    const merged={
+      ...oldData,
+      migrated:true,
+      version:CODE_VERSION,
+    };
+    await setDoc(userDoc,merged);
+    S={...JSON.parse(JSON.stringify(DEF)),...merged};
+    if(!S.cf)S.cf=JSON.parse(JSON.stringify(DEF_CF));
+    if(!S.cats)S.cats=JSON.parse(JSON.stringify(DEF.cats));
+    render();
+    toast('All data restored ✅');
+  }catch(e){
+    toast('Migration error: '+e.message,false);
+    console.error('Migration error:',e);
+  }
+}
+
 onAuthStateChanged(auth, user=>{
   if(user){
     // Logged in
@@ -389,6 +420,8 @@ onAuthStateChanged(auth, user=>{
     const ui=document.getElementById('user-info');
     if(ui)ui.innerHTML=`<img src="${user.photoURL||''}" style="width:24px;height:24px;border-radius:50%;"> ${user.displayName||user.email}`;
     DOC = doc(db,'budget',user.uid);
+    // Run one-time migration from 'main' if needed
+    migrateFromMain(user.uid);
     loadFromFirebase();
     // Real-time listener
     onSnapshot(DOC,(snap)=>{
