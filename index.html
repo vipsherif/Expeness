@@ -100,7 +100,18 @@ select option{background:var(--bg2);}
 .cf-edit-grid input{padding:7px 9px;font-size:13px;margin-bottom:0;}
 </style></head><body>
 
-<div class="desktop-nav">
+<div id="s-login" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center;">
+  <div style="font-size:48px;margin-bottom:16px;">💰</div>
+  <div style="font-size:24px;font-weight:700;margin-bottom:8px;">My Budget</div>
+  <div style="font-size:14px;color:var(--sub);margin-bottom:40px;">Your personal finance dashboard</div>
+  <button onclick="signInWithGoogle()" style="display:flex;align-items:center;gap:12px;background:#fff;color:#1f2937;border:none;border-radius:12px;padding:14px 24px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);">
+    <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+    Sign in with Google
+  </button>
+  <div style="font-size:12px;color:var(--sub);margin-top:20px;">Only you can access your data</div>
+</div>
+
+<div class="desktop-nav" id="desktop-nav">
   <span class="dlogo">💰 My Budget</span>
   <button class="dnb on" onclick="go('home',this)">Home</button>
   <button class="dnb" onclick="go('tx',this)">Log</button>
@@ -110,6 +121,9 @@ select option{background:var(--bg2);}
   <button class="dnb" onclick="go('cf',this)">Cash Flow</button>
   <button class="dnb" onclick="go('cat',this)">Categories</button>
   <button class="dnb" onclick="go('reports',this)">Reports</button>
+  <div style="flex:1;"></div>
+  <div id="user-info" style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--sub);"></div>
+  <button onclick="doSignOut()" style="background:var(--rbg);color:var(--red);border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">Sign out</button>
 </div>
 
 <div class="screen on" id="s-home">
@@ -320,11 +334,13 @@ select option{background:var(--bg2);}
 <script type="module">
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import{getFirestore,doc,setDoc,onSnapshot,getDoc}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig={apiKey:"AIzaSyD92xGTdR7GrsViRhWTd7mH9q-r4ZE-I8U",authDomain:"expanses-4192d.firebaseapp.com",projectId:"expanses-4192d",storageBucket:"expanses-4192d.firebasestorage.app",messagingSenderId:"539686503551",appId:"1:539686503551:web:0a8fa46226f181e16a2b4a"};
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
-const DOC=doc(db,'budget','main');
+const auth=getAuth(app);
+const provider=new GoogleAuthProvider();
 
 // ─── DEFAULT CASHFLOW (Jun 2026 onwards) ────────────────────────
 const CF_MONTHS=["Jun'26","Jul'26","Aug'26","Sep'26","Oct'26","Nov'26","Dec'26","Jan'27","Feb'27","Mar'27","Apr'27"];
@@ -345,7 +361,53 @@ const DEF_CF={
   }))
 };
 
-const CODE_VERSION = 17; // bump this every time Claude updates the file
+const CODE_VERSION = 18;
+let DOC = null;
+
+window.signInWithGoogle = async function(){
+  try{
+    await signInWithPopup(auth, provider);
+  }catch(e){console.error(e);alert('Sign in failed: '+e.message);}
+};
+
+window.doSignOut = async function(){
+  if(!confirm('Sign out?'))return;
+  await signOut(auth);
+  document.getElementById('s-login').style.display='flex';
+  document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+  document.getElementById('desktop-nav').style.display='none';
+  document.querySelector('.nav').style.display='none';
+};
+
+onAuthStateChanged(auth, user=>{
+  if(user){
+    // Logged in
+    document.getElementById('s-login').style.display='none';
+    document.querySelectorAll('.screen').forEach(s=>s.style.display='');
+    document.getElementById('s-home').classList.add('on');
+    document.querySelector('.nav').style.display='flex';
+    const ui=document.getElementById('user-info');
+    if(ui)ui.innerHTML=`<img src="${user.photoURL||''}" style="width:24px;height:24px;border-radius:50%;"> ${user.displayName||user.email}`;
+    DOC = doc(db,'budget',user.uid);
+    loadFromFirebase();
+    // Real-time listener
+    onSnapshot(DOC,(snap)=>{
+      if(snap.exists()){
+        const fb=snap.data();
+        S={...JSON.parse(JSON.stringify(DEF)),...fb};
+        if(!S.cf)S.cf=JSON.parse(JSON.stringify(DEF_CF));
+        if(!S.cats)S.cats=JSON.parse(JSON.stringify(DEF.cats));
+        setSyncStatus('synced');render();
+      }
+    });
+  } else {
+    // Not logged in
+    document.getElementById('s-login').style.display='flex';
+    document.querySelectorAll('.screen').forEach(s=>{s.style.display='none';s.classList.remove('on');});
+    document.getElementById('desktop-nav').style.display='none';
+    document.querySelector('.nav').style.display='none';
+  }
+}); // bump this every time Claude updates the file
 const DEF={
   version: CODE_VERSION,
   rate:14.5,
@@ -433,7 +495,6 @@ async function loadFromFirebase(){
   }catch(e){setSyncStatus('offline');console.error(e);}
 }
 
-onSnapshot(DOC,(snap)=>{if(snap.exists()){const fb=snap.data();S={...JSON.parse(JSON.stringify(DEF)),...fb};if(!S.cf)S.cf=JSON.parse(JSON.stringify(DEF_CF));if(!S.cats)S.cats=JSON.parse(JSON.stringify(DEF.cats));setSyncStatus('synced');render();}});
 
 function sv(){
   setSyncStatus('syncing');
@@ -905,6 +966,5 @@ window.delCard=function(type,name){
   sv();render();toast('Card removed');
 };
 
-loadFromFirebase();
 </script>
 </body></html>
